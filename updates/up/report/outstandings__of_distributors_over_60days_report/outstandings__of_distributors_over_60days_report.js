@@ -1,46 +1,75 @@
-frappe.query_reports["Outstandings  Of Distributors Over 60Days-Report"] = {
-    "filters": [
+// Copyright (c) 2025, Sai More
+// For license information, please see license.txt
+
+frappe.query_reports["Outstanding 60 Days Distributor"] = {
+    // ----------------------------
+    // 1️⃣ FILTER SECTION
+    // ----------------------------
+    filters: [
+        {
+            fieldname: "from_date",
+            label: __("From Date"),
+            fieldtype: "Date",
+            default: frappe.datetime.add_months(frappe.datetime.get_today(), -2),
+            reqd: 0
+        },
+        {
+            fieldname: "to_date",
+            label: __("To Date"),
+            fieldtype: "Date",
+            default: frappe.datetime.get_today(),
+            reqd: 0
+        },
         {
             fieldname: "company",
             label: __("Company"),
             fieldtype: "Link",
             options: "Company",
-            reqd: 1,
-            default: frappe.defaults.get_user_default("Company")
+            default: frappe.defaults.get_user_default("Company"),
+            reqd: 0
         },
         {
-            fieldname: "month_date",
-            label: __("Select Month"),
-            fieldtype: "Date",
-            reqd: 1,
-            default: frappe.datetime.nowdate(),
-            description: __("Select any date within the desired month")
+            fieldname: "customer_group",
+            label: __("Customer Group"),
+            fieldtype: "Link",
+            options: "Customer Group",
+            default: "Distributor",
+            reqd: 0
+        },
+        {
+            fieldname: "show_invoices",
+            label: __("Show Invoice List"),
+            fieldtype: "Check",
+            default: 0
         }
     ],
 
+    // ----------------------------
+    // 2️⃣ ON LOAD ACTIONS
+    // ----------------------------
+    onload: function (report) {
+        report.page.set_title(__("Outstanding (60+ Days) - Distributor"));
+        frappe.msgprint({
+            title: __("Note"),
+            indicator: "blue",
+            message: __("This report shows all Distributor customers with invoices overdue by more than 60 days.")
+        });
+    },
+
+    // ----------------------------
+    // 3️⃣ FORMATTERS (optional styling)
+    // ----------------------------
     formatter: function (value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
 
-        if (column.fieldname === "outstanding_amount" && data && data.distributor) {
-            const distributor = data.distributor;
-            const company = frappe.query_report.get_filter_value("company");
-            const selected_date = frappe.query_report.get_filter_value("month_date");
+        // Highlight overdue customers
+        if (column.fieldname === "avg_days_overdue" && data && data.avg_days_overdue > 90) {
+            value = `<span style='color:red; font-weight:600;'>${value}</span>`;
+        }
 
-            // derive month start & end from selected date
-            const from_date = frappe.datetime.month_start(selected_date);
-            const to_date = frappe.datetime.month_end(selected_date);
-
-            const route_options = {
-                customer: distributor,
-                company: company,
-                posting_date: ["between", [from_date, to_date]]
-            };
-
-            // clickable link
-            value = `<a href="#List/Sales Invoice/List?${frappe.utils.get_query_string(route_options)}"
-                      target="_blank" style="color: var(--text-on-blue); text-decoration: underline; font-weight: 500;">
-                        ${data.outstanding_amount}
-                     </a>`;
+        // Highlight clickable total
+        if (column.fieldname === "total_outstanding") {
+            value = `<span style='color:#007bff; font-weight:600; cursor:pointer;'>${value}</span>`;
         }
 
         return value;
